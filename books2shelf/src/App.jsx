@@ -1,14 +1,12 @@
 import React from 'react'
+import Navbar from './components/Navbar'
+import Hero from './components/Hero'
 
 function App() {
   return (
-    <div>
-      <h1>My Book Collection</h1>
-      <ul>
-        <li>Book 1</li>
-        <li>Book 2</li>
-        <li>Book 3</li>
-      </ul>
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <Hero />
     </div>
   )
 }
