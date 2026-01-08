@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../firebase/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import BookResults from './BookResults';
 
-const Hero = () => {
+const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Bestsellers');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [hasShelf, setHasShelf] = useState(false);
+  const { currentUser } = useAuth();
 
   const categories = [
     { name: 'Bestsellers', query: 'bestsellers' },
@@ -16,6 +21,28 @@ const Hero = () => {
     { name: 'Psychology', query: 'subject:psychology' },
     { name: 'Science', query: 'subject:science' }
   ];
+
+  // Check if user has a shelf
+  useEffect(() => {
+    if (currentUser) {
+      checkUserShelf();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  const checkUserShelf = async () => {
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setHasShelf(userData.hasShelf || false);
+      }
+    } catch (error) {
+      console.error('Error checking user shelf:', error);
+    }
+  };
 
   // Load bestsellers automatically when component mounts
   useEffect(() => {
@@ -125,9 +152,21 @@ const Hero = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                Create Your Shelf
-              </button>
+              {currentUser && hasShelf ? (
+                <button 
+                  onClick={onNavigateToDashboard}
+                  className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  Go To Your Shelf
+                </button>
+              ) : (
+                <button 
+                  onClick={currentUser ? onNavigateToDashboard : null}
+                  className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  Create Your Shelf
+                </button>
+              )}
               <button className="w-full sm:w-auto px-8 py-4 text-gray-700 font-semibold text-lg border-2 border-gray-300 rounded-lg hover:border-blue-600 hover:text-blue-600 transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5">
                 Learn More
               </button>
@@ -158,6 +197,7 @@ const Hero = () => {
                   {/* Search Input */}
                   <input
                     type="text"
+                    ref={searchBarRef}
                     placeholder="Search by title, author, or ISBN..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}

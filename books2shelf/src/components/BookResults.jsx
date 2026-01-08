@@ -1,6 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useAuth } from '../firebase/AuthContext';
+import { addBookToShelf } from '../firebase/bookshelfService';
 
 const BookResults = ({ books, loading, error }) => {
+  const { currentUser } = useAuth();
+  const [addingBooks, setAddingBooks] = useState({});
+
+  const handleAddToShelf = async (book) => {
+    if (!currentUser) {
+      alert('Please sign in to add books to your shelf');
+      return;
+    }
+
+    setAddingBooks(prev => ({ ...prev, [book.id]: true }));
+
+    try {
+      const result = await addBookToShelf(currentUser.uid, book);
+      if (result.success) {
+        alert(result.message);
+      } else {
+        alert(result.message);
+      }
+    } catch (err) {
+      console.error('Error adding book:', err);
+      alert('Failed to add book to shelf');
+    } finally {
+      setAddingBooks(prev => ({ ...prev, [book.id]: false }));
+    }
+  };
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -83,8 +110,12 @@ const BookResults = ({ books, loading, error }) => {
                 </div>
               )}
 
-              <button className="w-full mt-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                Add to Shelf
+              <button 
+                onClick={() => handleAddToShelf(book)}
+                disabled={addingBooks[book.id]}
+                className="w-full mt-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {addingBooks[book.id] ? 'Adding...' : 'Add to Shelf'}
               </button>
             </div>
           </div>

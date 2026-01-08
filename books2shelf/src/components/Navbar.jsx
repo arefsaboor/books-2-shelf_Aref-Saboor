@@ -1,63 +1,112 @@
 import React, { useState } from 'react';
+import { useAuth } from '../firebase/AuthContext';
+import AuthModal from './AuthModal';
+import ProfileDropdown from './ProfileDropdown';
 
-const Navbar = () => {
+const Navbar = ({ onNavigateHome, onNavigateDashboard, onNavigateProfile }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('signin');
+  const { currentUser, logout } = useAuth();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
+  const handleSignIn = () => {
+    setAuthMode('signin');
+    setAuthModalOpen(true);
+  };
+
+  const handleSignUp = () => {
+    setAuthMode('signup');
+    setAuthModalOpen(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Failed to log out:', error);
+    }
+  };
+
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="shrink-0 flex items-center">
-            <a href="/" className="flex items-center space-x-1">
-              <span className="text-2xl font-bold text-gray-800">BOOKS</span>
-              <span className="text-4xl font-extrabold text-blue-600">2</span>
-              <span className="text-2xl font-bold text-gray-800">SHELF</span>
-            </a>
-          </div>
+    <>
+      <nav className="bg-white shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="shrink-0 flex items-center">
+              <a href="/" className="flex items-center space-x-1">
+                <span className="text-2xl font-bold text-gray-800">BOOKS</span>
+                <span className="text-4xl font-extrabold text-blue-600">2</span>
+                <span className="text-2xl font-bold text-gray-800">SHELF</span>
+              </a>
+            </div>
 
-          {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center space-x-8">
-            <a
-              href="#home"
-              className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
-            >
-              Home
-            </a>
-            <a
-              href="#about"
-              className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
-            >
-              About
-            </a>
-            <a
-              href="#contact"
-              className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
-            >
-              Contact
-            </a>
-          </div>
+            {/* Desktop Navigation Links */}
+            <div className="hidden md:flex items-center space-x-8">
+              <button
+                onClick={onNavigateHome}
+                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+              >
+                Home
+              </button>
+              <a
+                href="#about"
+                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+              >
+                About
+              </a>
+              <a
+                href="#contact"
+                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+              >
+                Contact
+              </a>
+            </div>
 
-          {/* Desktop Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
-            <button className="px-6 py-2 text-gray-700 font-medium border-2 border-gray-300 rounded-lg hover:border-blue-600 hover:text-blue-600 transition-all duration-200">
-              Sign In
-            </button>
-            <button className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg">
-              Sign Up
-            </button>
-          </div>
+            {/* Desktop Buttons */}
+            <div className="hidden md:flex items-center space-x-4">
+              {currentUser ? (
+                <>
+                  <button
+                    onClick={onNavigateDashboard}
+                    className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+                  >
+                    My Shelf
+                  </button>
+                  <ProfileDropdown 
+                    onNavigateProfile={onNavigateProfile}
+                    onNavigateShelf={onNavigateDashboard}
+                    onLogout={handleLogout}
+                  />
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={handleSignIn}
+                    className="px-6 py-2 text-gray-700 font-medium border-2 border-gray-300 rounded-lg hover:border-blue-600 hover:text-blue-600 transition-all duration-200"
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={handleSignUp}
+                    className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
+            </div>
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={toggleMenu}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-all duration-200"
-              aria-expanded="false"
+            {/* Mobile Menu Button */}
+            <div className="md:hidden flex items-center">
+              <button
+                onClick={toggleMenu}
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-all duration-200"
+                aria-expanded="false"
             >
               <span className="sr-only">Open main menu</span>
               {/* Hamburger Icon */}
@@ -106,12 +155,20 @@ const Navbar = () => {
         }`}
       >
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
-          <a
-            href="#home"
-            className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-white transition-all duration-200"
+          <button
+            onClick={onNavigateHome}
+            className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-white transition-all duration-200"
           >
             Home
-          </a>
+          </button>
+          {currentUser && (
+            <button
+              onClick={onNavigateDashboard}
+              className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-white transition-all duration-200"
+            >
+              My Shelf
+            </button>
+          )}
           <a
             href="#about"
             className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-white transition-all duration-200"
@@ -125,16 +182,46 @@ const Navbar = () => {
             Contact
           </a>
           <div className="pt-4 pb-2 space-y-2">
-            <button className="w-full px-6 py-2 text-gray-700 font-medium border-2 border-gray-300 rounded-lg hover:border-blue-600 hover:text-blue-600 transition-all duration-200">
-              Sign In
-            </button>
-            <button className="w-full px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md">
-              Sign Up
-            </button>
+            {currentUser ? (
+              <>
+                <div className="px-3 py-2 text-gray-700 font-medium">
+                  Welcome, {currentUser.displayName || currentUser.email}
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="w-full px-6 py-2 text-gray-700 font-medium border-2 border-gray-300 rounded-lg hover:border-red-600 hover:text-red-600 transition-all duration-200"
+                >
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={handleSignIn}
+                  className="w-full px-6 py-2 text-gray-700 font-medium border-2 border-gray-300 rounded-lg hover:border-blue-600 hover:text-blue-600 transition-all duration-200"
+                >
+                  Sign In
+                </button>
+                <button 
+                  onClick={handleSignUp}
+                  className="w-full px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md"
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
     </nav>
+    
+    {/* Auth Modal */}
+    <AuthModal 
+      isOpen={authModalOpen} 
+      onClose={() => setAuthModalOpen(false)} 
+      mode={authMode} 
+    />
+    </>
   );
 };
 
