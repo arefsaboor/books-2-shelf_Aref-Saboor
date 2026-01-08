@@ -6,6 +6,12 @@ export const addBookToShelf = async (userId, book) => {
   try {
     const userRef = doc(db, 'users', userId);
     
+    // Check if book already exists in shelf
+    const bookExists = await isBookInShelf(userId, book.id);
+    if (bookExists) {
+      return { success: false, message: 'This book is already in your shelf!' };
+    }
+    
     // Create a simplified book object to store
     const bookData = {
       id: book.id,

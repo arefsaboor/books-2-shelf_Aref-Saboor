@@ -5,12 +5,17 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 
 const Profile = ({ onNavigateShelf }) => {
-  const { currentUser, updateUserData } = useAuth();
+  const { currentUser, updateUserData, deleteAccount, sendVerificationEmail } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [bookCount, setBookCount] = useState(0);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteStep, setDeleteStep] = useState(1); // 1: confirm, 2: verify email, 3: enter password
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const fileInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
@@ -189,6 +194,61 @@ const Profile = ({ onNavigateShelf }) => {
       return names[0].substring(0, 2).toUpperCase();
     }
     return 'U';
+  };
+
+  const handleDeleteAccountClick = () => {
+    setShowDeleteModal(true);
+    setDeleteStep(1);
+    setDeletePassword('');
+    setVerificationSent(false);
+  };
+
+  const handleSendVerification = async () => {
+    try {
+      await sendVerificationEmail();
+      setVerificationSent(true);
+      setDeleteStep(2);
+      setMessage({ text: 'Verification email sent! Please check your inbox.', type: 'success' });
+    } catch (error) {
+      console.error('Error sending verification:', error);
+      setMessage({ text: 'Failed to send verification email', type: 'error' });
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletePassword) {
+      setMessage({ text: 'Please enter your password', type: 'error' });
+      return;
+    }
+
+    setIsDeleting(true);
+    setMessage({ text: '', type: '' });
+
+    try {
+      await deleteAccount(deletePassword);
+      // Account deleted successfully, user will be logged out automatically
+      setMessage({ text: 'Account deleted successfully', type: 'success' });
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      if (error.code === 'auth/wrong-password') {
+        setMessage({ text: 'Incorrect password', type: 'error' });
+      } else if (error.code === 'auth/too-many-requests') {
+        setMessage({ text: 'Too many attempts. Please try again later.', type: 'error' });
+      } else {
+        setMessage({ text: 'Failed to delete account. Please try again.', type: 'error' });
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteStep(1);
+    setDeletePassword('');
+    setVerificationSent(false);
+    setMessage({ text: '', type: '' });
   };
 
   if (!currentUser) {
@@ -403,9 +463,111 @@ const Profile = ({ onNavigateShelf }) => {
                 </button>
               </div>
             )}
+
+            {/* Delete Account Section */}
+            {!isEditing && (
+              <div className="pt-6 mt-6 border-t border-gray-200">
+                <p className="text-sm text-gray-600 mb-4">
+                  Once you delete your account, there is no going back. This action cannot be undone.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccountClick}
+                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Delete Account
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            {deleteStep === 1 && (
+              <>
+                <h3 className="text-2xl font-bold text-red-600 mb-4">Delete Account</h3>
+                <p className="text-gray-700 mb-4">
+                  Are you sure you want to delete your account? This action cannot be undone and will:
+                </p>
+                <ul className="list-disc list-inside text-gray-700 mb-6 space-y-2">
+                  <li>Permanently delete all your data</li>
+                  <li>Remove your bookshelf ({bookCount} books)</li>
+                  <li>Delete your profile information</li>
+                  <li>Remove access to your account</li>
+                </ul>
+                <p className="text-sm text-gray-600 mb-6">
+                  To proceed, we'll send a verification email to <strong>{currentUser.email}</strong>
+                </p>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={handleSendVerification}
+                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Send Verification Email
+                  </button>
+                  <button
+                    onClick={handleCancelDelete}
+                    className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+
+            {deleteStep === 2 && (
+              <>
+                <h3 className="text-2xl font-bold text-red-600 mb-4">Verify Your Email</h3>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <p className="text-green-800">
+                    ✓ Verification email sent to <strong>{currentUser.email}</strong>
+                  </p>
+                </div>
+                <p className="text-gray-700 mb-4">
+                  Please check your email and click the verification link. Once verified, enter your password below to confirm account deletion.
+                </p>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter Your Password
+                  </label>
+                  <input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+                {message.text && message.type === 'error' && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 text-sm">{message.text}</p>
+                  </div>
+                )}
+                <div className="flex space-x-4">
+                  <button
+                    onClick={handleConfirmDelete}
+                    disabled={isDeleting || !deletePassword}
+                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-red-400 disabled:cursor-not-allowed font-medium"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                  </button>
+                  <button
+                    onClick={handleCancelDelete}
+                    disabled={isDeleting}
+                    className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -6,9 +6,13 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  updateProfile
+  updateProfile,
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  sendEmailVerification
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from './config';
 
 const AuthContext = createContext();
@@ -93,6 +97,40 @@ export const AuthProvider = ({ children }) => {
     await setDoc(doc(db, 'users', uid), data, { merge: true });
   };
 
+  // Send verification email
+  const sendVerificationEmail = async () => {
+    if (currentUser) {
+      await sendEmailVerification(currentUser);
+    }
+  };
+
+  // Delete user account
+  const deleteAccount = async (password) => {
+    if (!currentUser) {
+      throw new Error('No user is currently signed in');
+    }
+
+    try {
+      // Re-authenticate user before deletion
+      const credential = EmailAuthProvider.credential(
+        currentUser.email,
+        password
+      );
+      await reauthenticateWithCredential(currentUser, credential);
+
+      // Delete user data from Firestore
+      await deleteDoc(doc(db, 'users', currentUser.uid));
+
+      // Delete the user account
+      await deleteUser(currentUser);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -109,7 +147,9 @@ export const AuthProvider = ({ children }) => {
     logout,
     signInWithGoogle,
     getUserData,
-    updateUserData
+    updateUserData,
+    sendVerificationEmail,
+    deleteAccount
   };
 
   return (
