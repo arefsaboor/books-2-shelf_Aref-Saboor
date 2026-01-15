@@ -4,15 +4,15 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// TODO: Replace with your Firebase project configuration
-// Get this from Firebase Console -> Project Settings -> General -> Your apps
+// Firebase configuration using environment variables
+// These are safe to expose (client-side) - security is managed by Firebase rules
 const firebaseConfig = {
-  apiKey: "AIzaSyCu7ybGax9QvbHENewEw54aanKDijD5zYo",
-  authDomain: "books2shelf.firebaseapp.com",
-  projectId: "books2shelf",
-  storageBucket: "books2shelf.firebasestorage.app",
-  messagingSenderId: "550048212654",
-  appId: "1:550048212654:web:21e0d1f7f90dbf85776f3f"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCu7ybGax9QvbHENewEw54aanKDijD5zYo",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "books2shelf.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "books2shelf",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "books2shelf.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "550048212654",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:550048212654:web:21e0d1f7f90dbf85776f3f"
 };
 
 // Initialize Firebase
