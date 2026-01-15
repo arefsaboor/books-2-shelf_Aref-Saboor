@@ -1,16 +1,33 @@
-import React, { useState, useRef } from 'react'
+import React, { useRef } from 'react'
+import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom'
 import { AuthProvider } from './firebase/AuthContext'
 import Navbar from './components/Navbar'
-import Hero from './components/Hero'
-import Dashboard from './components/Dashboard'
-import Profile from './components/Profile'
+import Hero from './Sections/Hero'
+import Dashboard from './Pages/Dashboard'
+import Profile from './Pages/Profile'
+import About from './Pages/About'
+import Contact from './Pages/Contact'
+import BookDetails from './Pages/BookDetails'
+import Footer from './components/Footer'
+import PrivacyPolicy from './Pages/PrivacyPolicy'
+import Impressum from './Pages/Impressum'
 
-function App() {
-  const [currentView, setCurrentView] = useState('home'); // 'home', 'dashboard', or 'profile'
+// Wrapper component to handle BookDetails with URL params
+function BookDetailsWrapper() {
+  const { bookId } = useParams();
+  const navigate = useNavigate();
+  
+  return <BookDetails bookId={bookId} onBack={() => navigate('/dashboard')} />;
+}
+
+// Main App Content component
+function AppContent() {
   const searchBarRef = useRef(null);
+  const navigate = useNavigate();
 
   const navigateToHome = () => {
-    setCurrentView('home');
+    navigate('/');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     // Focus on search bar after navigation
     setTimeout(() => {
       if (searchBarRef.current) {
@@ -20,34 +37,135 @@ function App() {
   };
 
   const navigateToDashboard = () => {
-    setCurrentView('dashboard');
+    navigate('/dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const navigateToProfile = () => {
-    setCurrentView('profile');
+    navigate('/profile');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToAbout = (section = null) => {
+    navigate('/about');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // If a section is specified, scroll to it after the view changes
+    if (section) {
+      setTimeout(() => {
+        const element = document.getElementById(section);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  };
+
+  const navigateToContact = () => {
+    navigate('/contact');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToPrivacy = () => {
+    navigate('/privacy');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToImpressum = () => {
+    navigate('/impressum');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToBookDetails = (bookId) => {
+    navigate(`/book/${bookId}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <AuthProvider>
-      <div className="min-h-screen bg-white">
-        <Navbar 
-          onNavigateHome={navigateToHome}
-          onNavigateDashboard={navigateToDashboard}
-          onNavigateProfile={navigateToProfile}
-        />
-        {currentView === 'home' && (
-          <Hero 
-            searchBarRef={searchBarRef} 
-            onNavigateToDashboard={navigateToDashboard}
+    <div className="min-h-screen bg-white flex flex-col">
+      <Navbar 
+        onNavigateHome={navigateToHome}
+        onNavigateDashboard={navigateToDashboard}
+        onNavigateProfile={navigateToProfile}
+        onNavigateAbout={navigateToAbout}
+        onNavigateContact={navigateToContact}
+      />
+      <main className="grow">
+        <Routes>
+          <Route 
+            path="/" 
+            element={
+              <Hero 
+                searchBarRef={searchBarRef} 
+                onNavigateToDashboard={navigateToDashboard}
+                onNavigateToAbout={navigateToAbout}
+              />
+            } 
           />
-        )}
-        {currentView === 'dashboard' && (
-          <Dashboard onBrowseBooks={navigateToHome} />
-        )}
-        {currentView === 'profile' && (
-          <Profile onNavigateShelf={navigateToDashboard} />
-        )}
-      </div>
+          <Route 
+            path="/dashboard" 
+            element={
+              <Dashboard 
+                onBrowseBooks={navigateToHome} 
+                onViewBookDetails={navigateToBookDetails} 
+              />
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <Profile onNavigateShelf={navigateToDashboard} />
+            } 
+          />
+          <Route 
+            path="/book/:bookId" 
+            element={<BookDetailsWrapper />} 
+          />
+          <Route 
+            path="/about" 
+            element={
+              <About onNavigateHome={navigateToHome} />
+            } 
+          />
+          <Route 
+            path="/contact" 
+            element={
+              <Contact onNavigateHome={navigateToHome} />
+            } 
+          />
+          <Route 
+            path="/privacy" 
+            element={
+              <PrivacyPolicy onNavigateHome={navigateToHome} />
+            } 
+          />
+          <Route 
+            path="/impressum" 
+            element={
+              <Impressum onNavigateHome={navigateToHome} />
+            } 
+          />
+        </Routes>
+      </main>
+      <Footer 
+        onNavigateHome={navigateToHome}
+        onNavigateDashboard={navigateToDashboard}
+        onNavigateToPrivacy={navigateToPrivacy}
+        onNavigateToImpressum={navigateToImpressum}
+        onNavigateAbout={navigateToAbout}
+        onNavigateContact={navigateToContact}
+      />
+    </div>
+  )
+}
+
+// Main App component with Router
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
     </AuthProvider>
   )
 }

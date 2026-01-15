@@ -4,7 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import BookResults from './BookResults';
 
-const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
+const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Top Rated');
   const [books, setBooks] = useState([]);
@@ -248,51 +248,59 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
   const totalPages = Math.ceil(totalResults / booksPerPage);
 
   return (
-    <section className="relative bg-linear-to-br from-blue-50 via-white to-purple-50 py-20 md:py-32">
+    <section className="relative bg-linear-to-br from-amber-50 via-yellow-50 to-orange-50 py-20 md:py-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-4xl mx-auto">
           {/* Hero Container with vertical gap */}
-          <div className="flex flex-col gap-8 md:gap-10">
-            {/* Hero Message */}
-            <div className="space-y-4">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-gray-900 leading-tight">
-                Ever thought to organize the books you have and try to create a{' '}
-                <span className="bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Digital Shelf
-                </span>{' '}
-                for them?
-              </h1>
-              <p className="text-lg sm:text-xl text-gray-600 mt-6">
-                Search, organize, and manage your book collection effortlessly in one beautiful digital space.
-              </p>
+          <div className="flex flex-col gap-10 md:gap-12">
+            {/* Main Text and CTA Buttons Container */}
+            <div className="space-y-6">
+              {/* Hero Message */}
+              <div className="space-y-3">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl text-gray-900 leading-relaxed">
+                  Ever thought to organize the books you have and try to
+                  <br />
+                  create a{' '}
+                  <span className="font-bold bg-linear-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
+                    Digital Shelf
+                  </span>{' '}
+                  for them?
+                </h1>
+                <p className="text-base sm:text-lg text-gray-600">
+                  Search, organize, and manage your book collection effortlessly in one beautiful digital space.
+                </p>
+              </div>
+
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                {currentUser && hasShelf ? (
+                  <button 
+                    onClick={onNavigateToDashboard}
+                    className="w-full sm:w-auto px-8 py-3 bg-amber-400 text-gray-900 font-semibold text-base rounded-lg hover:bg-amber-500 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    Go To Your Shelf
+                  </button>
+                ) : (
+                  <button 
+                    onClick={currentUser ? onNavigateToDashboard : null}
+                    className="w-full sm:w-auto px-8 py-3 bg-amber-400 text-gray-900 font-semibold text-base rounded-lg hover:bg-amber-500 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    Create Your Shelf
+                  </button>
+                )}
+                <button 
+                  onClick={() => onNavigateToAbout('how-it-works')}
+                  className="w-full sm:w-auto px-8 py-3 text-gray-700 font-semibold text-base border-2 border-gray-300 rounded-lg hover:border-amber-500 hover:text-amber-600 transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5"
+                >
+                  Learn More
+                </button>
+              </div>
             </div>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              {currentUser && hasShelf ? (
-                <button 
-                  onClick={onNavigateToDashboard}
-                  className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                >
-                  Go To Your Shelf
-                </button>
-              ) : (
-                <button 
-                  onClick={currentUser ? onNavigateToDashboard : null}
-                  className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                >
-                  Create Your Shelf
-                </button>
-              )}
-              <button className="w-full sm:w-auto px-8 py-4 text-gray-700 font-semibold text-lg border-2 border-gray-300 rounded-lg hover:border-blue-600 hover:text-blue-600 transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5">
-                Learn More
-              </button>
-            </div>
-
-            {/* Search Bar Container */}
-            <div className="mt-4">
+            {/* Search Bar and Category Buttons Container */}
+            <div className="space-y-6">
               <form onSubmit={handleSearch} className="relative max-w-3xl mx-auto">
-                <div className="flex items-center bg-white rounded-full shadow-lg border-2 border-gray-200 hover:border-blue-400 transition-all duration-200">
+                <div className="flex items-center bg-white rounded-full shadow-lg border border-gray-300 hover:border-amber-400 transition-all duration-200">
                   {/* Search Icon */}
                   <div className="pl-6 pr-3">
                     <svg
@@ -318,13 +326,13 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
                     placeholder="Search by title, author, or ISBN..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 py-4 px-2 bg-transparent outline-none text-gray-700 placeholder-gray-400"
+                    className="flex-1 py-5 px-2 bg-transparent outline-none text-gray-700 placeholder-gray-400"
                   />
                   
                   {/* Search Button */}
                   <button 
                     type="submit"
-                    className="m-1 px-8 py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                    className="m-1 px-8 py-3.5 bg-amber-400 text-gray-900 font-semibold rounded-full hover:bg-amber-500 transition-all duration-200 shadow-md hover:shadow-lg"
                   >
                     Search
                   </button>
@@ -349,7 +357,7 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
                           <div
                             key={book.id}
                             onClick={() => handleSuggestionClick(book)}
-                            className="flex items-center gap-4 p-4 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
+                            className="flex items-center gap-4 p-4 hover:bg-amber-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
                           >
                             {/* Book Thumbnail */}
                             <img
@@ -389,15 +397,15 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
               </form>
 
               {/* Category Buttons */}
-              <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <div className="flex flex-wrap justify-center gap-3">
                 {categories.map((category) => (
                   <button
                     key={category.name}
                     onClick={() => handleCategoryClick(category)}
                     className={`px-6 py-2 rounded-full font-medium transition-all duration-200 ${
                       selectedCategory === category.name
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+                        ? 'bg-amber-400 text-gray-900 shadow-lg'
+                        : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-amber-400 hover:text-amber-600'
                     }`}
                   >
                     {category.name}
@@ -409,7 +417,7 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
         </div>
 
         {/* Book Results Section */}
-        <div className="mt-12">
+        <div className="mt-20">
           <BookResults books={books} loading={loading} error={error} />
           
           {/* Pagination */}
@@ -422,7 +430,7 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                   currentPage === 1
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+                    : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-amber-400 hover:text-amber-600'
                 }`}
               >
                 Previous
@@ -435,7 +443,7 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
                   <>
                     <button
                       onClick={() => handlePageChange(1)}
-                      className="px-4 py-2 rounded-lg font-medium bg-white text-gray-700 border-2 border-gray-200 hover:border-blue-400 hover:text-blue-600 transition-all duration-200"
+                      className="px-4 py-2 rounded-lg font-medium bg-white text-gray-700 border-2 border-gray-200 hover:border-amber-400 hover:text-amber-600 transition-all duration-200"
                     >
                       1
                     </button>
@@ -464,8 +472,8 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
                       onClick={() => handlePageChange(actualPage)}
                       className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                         currentPage === actualPage
-                          ? 'bg-blue-600 text-white shadow-lg'
-                          : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+                          ? 'bg-amber-600 text-white shadow-lg'
+                          : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-amber-400 hover:text-amber-600'
                       }`}
                     >
                       {actualPage}
@@ -481,7 +489,7 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
                     )}
                     <button
                       onClick={() => handlePageChange(totalPages)}
-                      className="px-4 py-2 rounded-lg font-medium bg-white text-gray-700 border-2 border-gray-200 hover:border-blue-400 hover:text-blue-600 transition-all duration-200"
+                      className="px-4 py-2 rounded-lg font-medium bg-white text-gray-700 border-2 border-gray-200 hover:border-amber-400 hover:text-amber-600 transition-all duration-200"
                     >
                       {totalPages}
                     </button>
@@ -496,7 +504,7 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                   currentPage === totalPages
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+                    : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-amber-400 hover:text-amber-600'
                 }`}
               >
                 Next
@@ -514,7 +522,7 @@ const Hero = ({ searchBarRef, onNavigateToDashboard }) => {
       </div>
 
       {/* Background Decorative Circles */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+      <div className="absolute top-20 left-10 w-72 h-72 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
       <div className="absolute top-40 right-10 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
       <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
     </section>

@@ -7,28 +7,47 @@ const AuthModal = ({ isOpen, onClose, mode }) => {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [welcomeName, setWelcomeName] = useState('');
   const { signup, login, signInWithGoogle } = useAuth();
 
   if (!isOpen) return null;
+
+  const showSuccessAndClose = (name) => {
+    setSuccess(true);
+    setWelcomeName(name);
+    
+    // Close after showing success message
+    setTimeout(() => {
+      setSuccess(false);
+      setWelcomeName('');
+      onClose();
+      setEmail('');
+      setPassword('');
+      setDisplayName('');
+    }, 2000);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
+    // Add slight delay to make it feel more realistic
+    await new Promise(resolve => setTimeout(resolve, 800));
+
     try {
+      let result;
       if (mode === 'signup') {
-        await signup(email, password, displayName);
+        result = await signup(email, password, displayName);
+        showSuccessAndClose(displayName || email.split('@')[0]);
       } else {
-        await login(email, password);
+        result = await login(email, password);
+        const userName = result?.user?.displayName || email.split('@')[0];
+        showSuccessAndClose(userName);
       }
-      onClose();
-      setEmail('');
-      setPassword('');
-      setDisplayName('');
     } catch (err) {
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -37,12 +56,15 @@ const AuthModal = ({ isOpen, onClose, mode }) => {
     setError('');
     setLoading(true);
 
+    // Add slight delay to make it feel more realistic
+    await new Promise(resolve => setTimeout(resolve, 800));
+
     try {
-      await signInWithGoogle();
-      onClose();
+      const result = await signInWithGoogle();
+      const userName = result?.user?.displayName || 'User';
+      showSuccessAndClose(userName);
     } catch (err) {
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -50,27 +72,40 @@ const AuthModal = ({ isOpen, onClose, mode }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {mode === 'signup' ? 'Create Account' : 'Sign In'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
+        {/* Success Message */}
+        {success ? (
+          <div className="text-center py-8">
+            <div className="mb-4">
+              <svg className="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Welcome back!</h3>
+            <p className="text-gray-600">Hello, {welcomeName}</p>
           </div>
-        )}
+        ) : (
+          <>
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {mode === 'signup' ? 'Create Account' : 'Sign In'}
+              </h2>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -83,7 +118,7 @@ const AuthModal = ({ isOpen, onClose, mode }) => {
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
                 required
               />
             </div>
@@ -97,7 +132,7 @@ const AuthModal = ({ isOpen, onClose, mode }) => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
               required
             />
           </div>
@@ -110,7 +145,7 @@ const AuthModal = ({ isOpen, onClose, mode }) => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
               required
               minLength="6"
             />
@@ -119,7 +154,7 @@ const AuthModal = ({ isOpen, onClose, mode }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-3 bg-amber-400 text-gray-900 font-semibold rounded-lg hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Please wait...' : mode === 'signup' ? 'Sign Up' : 'Sign In'}
           </button>
@@ -161,6 +196,8 @@ const AuthModal = ({ isOpen, onClose, mode }) => {
           </svg>
           Google
         </button>
+          </>
+        )}
       </div>
     </div>
   );

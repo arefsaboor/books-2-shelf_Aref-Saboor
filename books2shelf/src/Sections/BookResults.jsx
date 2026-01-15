@@ -1,16 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../firebase/AuthContext';
-import { addBookToShelf } from '../firebase/bookshelfService';
+import { addBookToShelf, isBookInShelf } from '../Firebase/bookshelfServiceNew';
 
 const BookResults = ({ books, loading, error }) => {
   const { currentUser } = useAuth();
   const [addingBooks, setAddingBooks] = useState({});
+  const [booksInShelf, setBooksInShelf] = useState({});
   const [selectedBook, setSelectedBook] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Check which books are already in the shelf
+  useEffect(() => {
+    const checkBooksInShelf = async () => {
+      if (!currentUser || books.length === 0) {
+        setBooksInShelf({});
+        return;
+      }
+
+      const checkPromises = books.map(async (book) => {
+        const inShelf = await isBookInShelf(currentUser.uid, book.id);
+        return { bookId: book.id, inShelf };
+      });
+
+      const results = await Promise.all(checkPromises);
+      const shelfStatus = {};
+      results.forEach(({ bookId, inShelf }) => {
+        shelfStatus[bookId] = inShelf;
+      });
+      
+      setBooksInShelf(shelfStatus);
+    };
+
+    checkBooksInShelf();
+  }, [books, currentUser]);
 
   const handleAddToShelf = async (book) => {
     if (!currentUser) {
       alert('Please sign in to add books to your shelf');
+      return;
+    }
+
+    // If book is already in shelf, don't allow adding again
+    if (booksInShelf[book.id]) {
+      alert('This book is already in your shelf!');
       return;
     }
 
@@ -20,6 +52,8 @@ const BookResults = ({ books, loading, error }) => {
       const result = await addBookToShelf(currentUser.uid, book);
       if (result.success) {
         alert(result.message);
+        // Update the shelf status
+        setBooksInShelf(prev => ({ ...prev, [book.id]: true }));
       } else {
         alert(result.message);
       }
@@ -43,7 +77,7 @@ const BookResults = ({ books, loading, error }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
       </div>
     );
   }
@@ -128,7 +162,7 @@ const BookResults = ({ books, loading, error }) => {
                     {bookInfo.categories.slice(0, 2).map((category, index) => (
                       <span
                         key={index}
-                        className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-medium"
+                        className="text-xs bg-amber-50 text-amber-700 px-3 py-1 rounded-full font-medium"
                       >
                         {category}
                       </span>
@@ -143,7 +177,7 @@ const BookResults = ({ books, loading, error }) => {
                 <div className="space-y-2 mt-4">
                   <button 
                     onClick={() => openBookModal(book)}
-                    className="w-full px-4 py-2.5 bg-white border-2 border-blue-600 text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2.5 bg-white border-2 border-amber-400 text-amber-600 font-semibold rounded-lg hover:bg-amber-50 transition-all duration-200 flex items-center justify-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -154,13 +188,28 @@ const BookResults = ({ books, loading, error }) => {
 
                   <button 
                     onClick={() => handleAddToShelf(book)}
-                    disabled={addingBooks[book.id]}
-                    className="w-full px-4 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                    disabled={addingBooks[book.id] || booksInShelf[book.id]}
+                    className={`w-full px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${
+                      booksInShelf[book.id]
+                        ? 'bg-green-100 text-green-700 border-2 border-green-300 cursor-default'
+                        : 'bg-amber-400 text-gray-900 hover:bg-amber-500 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed'
+                    }`}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    {addingBooks[book.id] ? 'Adding...' : 'Add to Shelf'}
+                    {booksInShelf[book.id] ? (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Added to Shelf
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        {addingBooks[book.id] ? 'Adding...' : 'Add to Shelf'}
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -213,7 +262,7 @@ const BookResults = ({ books, loading, error }) => {
                         closeModal();
                       }}
                       disabled={addingBooks[selectedBook.id]}
-                      className="w-full mt-4 px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
+                      className="w-full mt-4 px-4 py-3 bg-amber-400 text-gray-900 font-semibold rounded-lg hover:bg-amber-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -311,7 +360,7 @@ const BookResults = ({ books, loading, error }) => {
                         {selectedBook.volumeInfo.categories.map((category, index) => (
                           <span
                             key={index}
-                            className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium"
+                            className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-sm font-medium"
                           >
                             {category}
                           </span>

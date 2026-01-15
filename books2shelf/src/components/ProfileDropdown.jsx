@@ -61,10 +61,10 @@ const ProfileDropdown = ({ onNavigateProfile, onNavigateShelf, onLogout }) => {
           <img
             src={currentUser.photoURL}
             alt="Profile"
-            className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 hover:border-blue-500 transition-colors"
+            className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 hover:border-amber-500 transition-colors"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm border-2 border-blue-700 hover:bg-blue-700 transition-colors">
+          <div className="w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center font-semibold text-sm border-2 border-amber-700 hover:bg-amber-700 transition-colors">
             {getInitials()}
           </div>
         )}
@@ -101,7 +101,7 @@ const ProfileDropdown = ({ onNavigateProfile, onNavigateShelf, onLogout }) => {
           {/* Menu Items */}
           <button
             onClick={handleProfileClick}
-            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center space-x-3"
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors flex items-center space-x-3"
           >
             <svg
               className="w-5 h-5"
@@ -121,7 +121,7 @@ const ProfileDropdown = ({ onNavigateProfile, onNavigateShelf, onLogout }) => {
 
           <button
             onClick={handleShelfClick}
-            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center space-x-3"
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors flex items-center space-x-3"
           >
             <svg
               className="w-5 h-5"

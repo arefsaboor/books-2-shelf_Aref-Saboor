@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../firebase/AuthContext';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../Firebase/config';
+import { 
+  getUserBookshelf, 
+  updateBookStatus as updateBookStatusService,
+  removeBookFromShelf
+} from '../Firebase/bookshelfServiceNew';
 
-const Dashboard = ({ onBrowseBooks }) => {
+const Dashboard = ({ onBrowseBooks, onViewBookDetails }) => {
   const { currentUser } = useAuth();
   const [hasShelf, setHasShelf] = useState(false);
   const [bookshelf, setBookshelf] = useState([]);
@@ -33,11 +38,25 @@ const Dashboard = ({ onBrowseBooks }) => {
       if (userDoc.exists()) {
         const userData = userDoc.data();
         setHasShelf(userData.hasShelf || false);
-        const books = userData.bookshelf || [];
+        
+        // Try to get books from new structure (subcollection)
+        const books = await getUserBookshelf(currentUser.uid);
+        
+        // Books are already sorted by the service (newest first)
         setBookshelf(books);
         
-        // Calculate statistics
-        calculateStats(books);
+        // Get stats from user document (already calculated by the service)
+        if (userData.stats) {
+          setStats({
+            total: userData.stats.totalBooks || 0,
+            wantToRead: userData.stats.wantToRead || 0,
+            currentlyReading: userData.stats.currentlyReading || 0,
+            completed: userData.stats.completed || 0
+          });
+        } else {
+          // Fallback: calculate stats from books
+          calculateStats(books);
+        }
       }
     } catch (error) {
       console.error('Error checking user shelf:', error);
@@ -62,17 +81,17 @@ const Dashboard = ({ onBrowseBooks }) => {
 
   const updateBookStatus = async (bookId, newStatus) => {
     try {
-      const updatedBookshelf = bookshelf.map(book => 
-        book.id === bookId ? { ...book, status: newStatus } : book
-      );
+      // Find the current book to get its old status
+      const currentBook = bookshelf.find(book => book.id === bookId);
+      const oldStatus = currentBook?.status || 'wantToRead';
       
-      const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, {
-        bookshelf: updatedBookshelf
-      });
+      // Use the new service to update book status
+      await updateBookStatusService(currentUser.uid, bookId, newStatus, oldStatus);
       
-      setBookshelf(updatedBookshelf);
-      calculateStats(updatedBookshelf);
+      // Refresh the bookshelf to show updated data
+      const updatedBooks = await getUserBookshelf(currentUser.uid);
+      setBookshelf(updatedBooks);
+      calculateStats(updatedBooks);
     } catch (error) {
       console.error('Error updating book status:', error);
       alert('Failed to update book status. Please try again.');
@@ -81,24 +100,17 @@ const Dashboard = ({ onBrowseBooks }) => {
 
   const removeBook = async (bookId) => {
     try {
-      const updatedBookshelf = bookshelf.filter(book => book.id !== bookId);
+      // Use the new service to remove book
+      await removeBookFromShelf(currentUser.uid, bookId);
       
-      const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, {
-        bookshelf: updatedBookshelf
-      });
-      
-      setBookshelf(updatedBookshelf);
-      calculateStats(updatedBookshelf);
+      // Refresh the bookshelf
+      const updatedBooks = await getUserBookshelf(currentUser.uid);
+      setBookshelf(updatedBooks);
+      calculateStats(updatedBooks);
     } catch (error) {
       console.error('Error removing book:', error);
       alert('Failed to remove book. Please try again.');
     }
-  };
-
-  const openBookModal = (book) => {
-    setSelectedBook(book);
-    setShowModal(true);
   };
 
   const closeModal = () => {
@@ -296,21 +308,21 @@ const Dashboard = ({ onBrowseBooks }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-amber-400"></div>
       </div>
     );
   }
 
   if (!hasShelf) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 text-center">
+      <div className="min-h-screen bg-linear-to-br from-indigo-50 via-purple-50 to-pink-50 py-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-16 text-center border border-white/20">
             {/* Icon */}
-            <div className="mb-6 flex justify-center">
-              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center">
+            <div className="mb-8 flex justify-center">
+              <div className="w-28 h-28 bg-linear-to-br from-amber-400 to-orange-500 rounded-3xl flex items-center justify-center shadow-xl transform hover:scale-105 transition-transform duration-300">
                 <svg
-                  className="w-12 h-12 text-blue-600"
+                  className="w-14 h-14 text-white"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -327,85 +339,91 @@ const Dashboard = ({ onBrowseBooks }) => {
             </div>
 
             {/* Message */}
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold bg-linear-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-4">
               Welcome to Your Dashboard!
             </h1>
-            <p className="text-xl text-gray-600 mb-8">
-              You haven't created any shelf yet.
+            <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
+              You haven't created your bookshelf yet. Start your reading journey today!
             </p>
 
             {/* CTA Button */}
             <button
               onClick={createShelf}
-              className="px-10 py-4 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              className="px-12 py-4 bg-linear-to-r from-amber-400 to-orange-500 text-white font-bold text-lg rounded-2xl hover:from-amber-500 hover:to-orange-600 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 hover:scale-105"
             >
-              Create Your Shelf
+              Create Your Shelf ✨
             </button>
 
             {/* Additional Info */}
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-blue-600 mb-2">
-                  <svg
-                    className="w-8 h-8"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+            <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 bg-linear-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 hover:shadow-lg transition-shadow duration-300">
+                <div className="text-blue-600 mb-3 flex justify-center">
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <svg
+                      className="w-7 h-7"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-1">Search Books</h3>
-                <p className="text-sm text-gray-600">
-                  Find books by title, author, or ISBN from Google Books API
+                <h3 className="font-bold text-gray-900 mb-2 text-lg">Search Books</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Find books by title, author, or ISBN from millions of books
                 </p>
               </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-blue-600 mb-2">
-                  <svg
-                    className="w-8 h-8"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
+              <div className="p-6 bg-linear-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100 hover:shadow-lg transition-shadow duration-300">
+                <div className="text-green-600 mb-3 flex justify-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <svg
+                      className="w-7 h-7"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-1">Add to Shelf</h3>
-                <p className="text-sm text-gray-600">
-                  Save your favorite books to your personal digital shelf
+                <h3 className="font-bold text-gray-900 mb-2 text-lg">Add to Shelf</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Save your favorite books to your personal digital library
                 </p>
               </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-blue-600 mb-2">
-                  <svg
-                    className="w-8 h-8"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                  </svg>
+              <div className="p-6 bg-linear-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100 hover:shadow-lg transition-shadow duration-300">
+                <div className="text-purple-600 mb-3 flex justify-center">
+                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <svg
+                      className="w-7 h-7"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                      />
+                    </svg>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-1">Organize</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="font-bold text-gray-900 mb-2 text-lg">Organize</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
                   Keep all your books organized in one beautiful place
                 </p>
               </div>
@@ -419,20 +437,20 @@ const Dashboard = ({ onBrowseBooks }) => {
   // Shelf exists but empty
   if (bookshelf.length === 0) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 py-20">
+      <div className="min-h-screen bg-linear-to-br from-indigo-50 via-purple-50 to-pink-50 py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">My Bookshelf</h1>
-            <p className="text-gray-600">Your personal digital library</p>
+          <div className="mb-10 text-center">
+            <h1 className="text-5xl font-bold bg-linear-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-3">My Bookshelf</h1>
+            <p className="text-xl text-gray-600">Your personal digital library</p>
           </div>
 
           {/* Empty State */}
-          <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
-            <div className="mb-6 flex justify-center">
-              <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center">
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-16 text-center border border-white/20">
+            <div className="mb-8 flex justify-center">
+              <div className="w-36 h-36 bg-linear-to-br from-gray-100 to-gray-200 rounded-3xl flex items-center justify-center shadow-lg">
                 <svg
-                  className="w-16 h-16 text-gray-400"
+                  className="w-20 h-20 text-gray-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -448,18 +466,18 @@ const Dashboard = ({ onBrowseBooks }) => {
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
-              You have no books in your shelf!
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Your shelf is empty!
             </h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            <p className="text-lg text-gray-600 mb-10 max-w-md mx-auto">
               Start building your digital library by browsing and adding books to your shelf.
             </p>
 
             <button
               onClick={onBrowseBooks}
-              className="px-10 py-4 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              className="px-12 py-4 bg-linear-to-r from-amber-400 to-orange-500 text-white font-bold text-lg rounded-2xl hover:from-amber-500 hover:to-orange-600 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 hover:scale-105"
             >
-              Browse Books
+              Browse Books 📚
             </button>
           </div>
         </div>
@@ -469,87 +487,98 @@ const Dashboard = ({ onBrowseBooks }) => {
 
   // Shelf with books
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-linear-to-br from-indigo-50 via-purple-50 to-pink-50 py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Shelf Navbar */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-8 border border-white/20">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
             {/* Left Side - Title */}
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">Your Shelf</h1>
-              <p className="text-gray-600">User's Personal Library</p>
+              <h1 className="text-4xl font-bold bg-linear-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">Your Shelf</h1>
+              <p className="text-gray-600 text-lg">Your Personal Digital Library</p>
             </div>
             
-            {/* Right Side - Browse Button */}
-            <button
-              onClick={onBrowseBooks}
-              className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <span>Browse Books</span>
-            </button>
+            {/* Right Side - Browse Button & Export */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={generatePDF}
+                className="px-5 py-3 bg-white border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Export Shelf As PDF</span>
+              </button>
+              <button
+                onClick={onBrowseBooks}
+                className="px-6 py-3 bg-linear-to-r from-amber-400 to-orange-500 text-white font-bold rounded-xl hover:from-amber-500 hover:to-orange-600 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2 transform hover:-translate-y-0.5"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>Browse Books</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Statistics Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           {/* Total Books */}
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-600">
+          <div className="bg-linear-to-br from-amber-400 via-orange-400 to-orange-500 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 border border-amber-300/50">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">Total Books</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-white/90 text-sm font-semibold mb-2 uppercase tracking-wide">Total Books</p>
+                <p className="text-5xl font-bold text-white drop-shadow-lg">{stats.total}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
+                <svg className="w-8 h-8 text-white drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
             </div>
           </div>
 
           {/* Want to Read */}
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-600">
+          <div className="bg-linear-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 border border-purple-400/50">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">Want to Read</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.wantToRead}</p>
+                <p className="text-white/90 text-sm font-semibold mb-2 uppercase tracking-wide">Want to Read</p>
+                <p className="text-5xl font-bold text-white drop-shadow-lg">{stats.wantToRead}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
+                <svg className="w-8 h-8 text-white drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
               </div>
             </div>
           </div>
 
           {/* Currently Reading */}
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-600">
+          <div className="bg-linear-to-br from-green-500 via-emerald-500 to-teal-600 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 border border-green-400/50">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">Currently Reading</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.currentlyReading}</p>
+                <p className="text-white/90 text-sm font-semibold mb-2 uppercase tracking-wide">Currently Reading</p>
+                <p className="text-5xl font-bold text-white drop-shadow-lg">{stats.currentlyReading}</p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
+                <svg className="w-8 h-8 text-white drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
             </div>
           </div>
 
           {/* Completed */}
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-600">
+          <div className="bg-linear-to-br from-yellow-400 via-amber-500 to-orange-500 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 border border-yellow-300/50">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">Completed</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.completed}</p>
+                <p className="text-white/90 text-sm font-semibold mb-2 uppercase tracking-wide">Completed</p>
+                <p className="text-5xl font-bold text-white drop-shadow-lg">{stats.completed}</p>
               </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
+                <svg className="w-8 h-8 text-white drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
@@ -557,15 +586,21 @@ const Dashboard = ({ onBrowseBooks }) => {
         </div>
 
         {/* View Toggle Container */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-5 mb-8 border border-white/20">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">View Options</h2>
-            <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              View Options
+            </h2>
+            <div className="flex items-center space-x-2 bg-gray-100 rounded-xl p-1.5">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center space-x-2 ${
+                className={`px-5 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center space-x-2 ${
                   viewMode === 'grid'
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-amber-600 shadow-lg scale-105'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -576,9 +611,9 @@ const Dashboard = ({ onBrowseBooks }) => {
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center space-x-2 ${
+                className={`px-5 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center space-x-2 ${
                   viewMode === 'list'
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-amber-600 shadow-lg scale-105'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -589,9 +624,9 @@ const Dashboard = ({ onBrowseBooks }) => {
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center space-x-2 ${
+                className={`px-5 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center space-x-2 ${
                   viewMode === 'table'
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-amber-600 shadow-lg scale-105'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -656,7 +691,7 @@ const Dashboard = ({ onBrowseBooks }) => {
 
               {/* Book Info */}
               <div className="p-5 grow flex flex-col">
-                <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-amber-600 transition-colors">
                   {book.title}
                 </h3>
                 <p className="text-gray-600 text-sm mb-2 line-clamp-1">
@@ -673,23 +708,23 @@ const Dashboard = ({ onBrowseBooks }) => {
 
                 {/* Action Buttons */}
                 <div className="mt-4 space-y-2">
-                  {/* View Book Button */}
+                  {/* View Book Details Button */}
                   <button
-                    onClick={() => openBookModal(book)}
-                    className="w-full px-4 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                    onClick={() => onViewBookDetails(book.id)}
+                    className="w-full px-4 py-2.5 bg-amber-400 text-gray-900 font-semibold rounded-lg hover:bg-amber-500 transition-colors flex items-center justify-center space-x-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
-                    <span>View Book</span>
+                    <span>View Details</span>
                   </button>
 
                   {/* Status Dropdown */}
                   <select
                     value={book.status || ''}
                     onChange={(e) => updateBookStatus(book.id, e.target.value)}
-                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
                   >
                     <option value="">Set Status</option>
                     <option value="wantToRead">📚 Want to Read</option>
@@ -789,20 +824,20 @@ const Dashboard = ({ onBrowseBooks }) => {
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-3 mt-auto">
                     <button
-                      onClick={() => openBookModal(book)}
-                      className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                      onClick={() => onViewBookDetails(book.id)}
+                      className="px-6 py-2.5 bg-amber-400 text-gray-900 font-semibold rounded-lg hover:bg-amber-500 transition-colors flex items-center space-x-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                      <span>View Book</span>
+                      <span>View Details</span>
                     </button>
 
                     <select
                       value={book.status || ''}
                       onChange={(e) => updateBookStatus(book.id, e.target.value)}
-                      className="px-4 py-2.5 border-2 border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      className="px-4 py-2.5 border-2 border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
                     >
                       <option value="">Set Status</option>
                       <option value="wantToRead">📚 Want to Read</option>
@@ -834,22 +869,13 @@ const Dashboard = ({ onBrowseBooks }) => {
         {viewMode === 'table' && (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             {/* Table Header with Download Button */}
-            <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
+            <div className="bg-amber-400 px-6 py-4 flex items-center justify-between">
               <h3 className="text-xl font-bold text-white flex items-center space-x-2">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
                 <span>My Bookshelf ({bookshelf.length} {bookshelf.length === 1 ? 'Book' : 'Books'})</span>
               </h3>
-              <button
-                onClick={generatePDF}
-                className="px-5 py-2.5 bg-white text-blue-600 font-semibold rounded-lg hover:bg-gray-100 transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span>Download as PDF</span>
-              </button>
             </div>
 
             {/* Table */}
@@ -918,7 +944,7 @@ const Dashboard = ({ onBrowseBooks }) => {
                         <select
                           value={book.status || 'wantToRead'}
                           onChange={(e) => updateBookStatus(book.id, e.target.value)}
-                          className="text-sm px-3 py-1.5 rounded-full font-medium border-2 cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="text-sm px-3 py-1.5 rounded-full font-medium border-2 cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-amber-500"
                           style={{
                             backgroundColor:
                               book.status === 'wantToRead'
@@ -948,8 +974,8 @@ const Dashboard = ({ onBrowseBooks }) => {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <button
-                            onClick={() => openBookModal(book)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            onClick={() => onViewBookDetails(book.id)}
+                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                             title="View Details"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
