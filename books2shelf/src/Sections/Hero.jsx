@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../Firebase/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../Firebase/config';
@@ -17,8 +18,10 @@ const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [booksPerPage] = useState(12);
+  const [showSignupModal, setShowSignupModal] = useState(false);
   const suggestionsRef = useRef(null);
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const categories = [
     { name: 'Top Rated', query: 'toprated' },
@@ -49,6 +52,21 @@ const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {
     } catch (error) {
       console.error('Error checking user shelf:', error);
     }
+  };
+
+  const handleCreateShelfClick = () => {
+    if (!currentUser) {
+      // Show modal if user is not signed in
+      setShowSignupModal(true);
+    } else {
+      // Navigate to dashboard if user is signed in
+      onNavigateToDashboard();
+    }
+  };
+
+  const handleSignupRedirect = () => {
+    setShowSignupModal(false);
+    navigate('/signup');
   };
 
   const loadTopRated = useCallback(async (page = 1) => {
@@ -282,7 +300,7 @@ const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {
                   </button>
                 ) : (
                   <button 
-                    onClick={currentUser ? onNavigateToDashboard : null}
+                    onClick={handleCreateShelfClick}
                     className="w-full sm:w-auto px-8 py-3 bg-amber-400 text-gray-900 font-semibold text-base rounded-lg hover:bg-amber-500 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                   >
                     Create Your Shelf
@@ -525,6 +543,67 @@ const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {
       <div className="absolute top-20 left-10 w-72 h-72 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
       <div className="absolute top-40 right-10 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
       <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+
+      {/* Sign Up Modal */}
+      {showSignupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all animate-fadeIn">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">Create Your Account</h2>
+              </div>
+              <button
+                onClick={() => setShowSignupModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="space-y-4 mb-8">
+              <p className="text-gray-600 text-lg leading-relaxed">
+                To create your personal bookshelf and start organizing your book collection, you need to create an account first.
+              </p>
+              <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
+                <p className="text-amber-800 text-sm font-medium">
+                  ✨ With an account you can:
+                </p>
+                <ul className="mt-2 text-amber-700 text-sm space-y-1 ml-4">
+                  <li>• Create your personalized bookshelf</li>
+                  <li>• Add and organize your books</li>
+                  <li>• Track your reading progress</li>
+                  <li>• Access your collection anywhere</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleSignupRedirect}
+                className="flex-1 px-6 py-3 bg-amber-400 text-gray-900 font-semibold rounded-lg hover:bg-amber-500 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                Sign Up Now
+              </button>
+              <button
+                onClick={() => setShowSignupModal(false)}
+                className="flex-1 px-6 py-3 text-gray-700 font-medium border-2 border-gray-300 rounded-lg hover:border-amber-400 hover:text-amber-600 transition-all duration-200"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
