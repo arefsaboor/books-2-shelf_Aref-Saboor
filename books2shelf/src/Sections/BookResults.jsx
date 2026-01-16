@@ -46,10 +46,16 @@ const BookResults = ({ books, loading, error }) => {
       return;
     }
 
+    // Debug: Log the book data being sent
+    console.log('Adding book to shelf:', book);
+    console.log('Book ID:', book.id);
+    console.log('Book volumeInfo:', book.volumeInfo);
+
     setAddingBooks(prev => ({ ...prev, [book.id]: true }));
 
     try {
       const result = await addBookToShelf(currentUser.uid, book);
+      console.log('Add book result:', result);
       if (result && result.success) {
         alert(result.message || 'Book added to your shelf successfully!');
         // Update the shelf status

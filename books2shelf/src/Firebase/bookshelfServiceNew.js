@@ -29,9 +29,15 @@ import { db } from "./config";
  */
 export const addBookToShelf = async (userId, bookData) => {
   try {
+    // Debug logging
+    console.log('addBookToShelf called with:', { userId, bookData });
+    
     // Flatten Google Books API structure if needed
     const volumeInfo = bookData.volumeInfo || bookData;
     const bookId = bookData.id || bookData.bookId;
+    
+    console.log('Extracted volumeInfo:', volumeInfo);
+    console.log('Book ID:', bookId);
     
     if (!bookId) {
       throw new Error("Book ID is required");
@@ -61,7 +67,11 @@ export const addBookToShelf = async (userId, bookData) => {
       yearOfOwnership: bookData.yearOfOwnership || new Date().getFullYear().toString(),
     };
 
+    console.log('Book to be saved:', newBook);
+
     await setDoc(bookRef, newBook);
+
+    console.log('Book saved successfully to Firebase');
 
     // Update user stats
     await updateUserStats(userId, bookData.status || "wantToRead", "increment");
