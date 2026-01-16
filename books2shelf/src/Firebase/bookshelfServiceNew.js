@@ -29,10 +29,30 @@ import { db } from "./config";
  */
 export const addBookToShelf = async (userId, bookData) => {
   try {
-    const bookRef = doc(db, "bookshelves", userId, "books", bookData.id);
+    // Flatten Google Books API structure if needed
+    const volumeInfo = bookData.volumeInfo || bookData;
+    const bookId = bookData.id || bookData.bookId;
+    
+    if (!bookId) {
+      throw new Error("Book ID is required");
+    }
+    
+    const bookRef = doc(db, "bookshelves", userId, "books", bookId);
     
     const newBook = {
-      ...bookData,
+      id: bookId,
+      title: volumeInfo.title || bookData.title || "Unknown Title",
+      authors: volumeInfo.authors || bookData.authors || ["Unknown Author"],
+      publisher: volumeInfo.publisher || bookData.publisher || "",
+      publishedDate: volumeInfo.publishedDate || bookData.publishedDate || "",
+      description: volumeInfo.description || bookData.description || "",
+      pageCount: volumeInfo.pageCount || bookData.pageCount || 0,
+      categories: volumeInfo.categories || bookData.categories || [],
+      imageLinks: volumeInfo.imageLinks || bookData.imageLinks || {},
+      language: volumeInfo.language || bookData.language || "en",
+      previewLink: volumeInfo.previewLink || bookData.previewLink || "",
+      infoLink: volumeInfo.infoLink || bookData.infoLink || "",
+      // User-specific fields
       addedAt: Timestamp.now(),
       lastUpdated: Timestamp.now(),
       status: bookData.status || "wantToRead",
