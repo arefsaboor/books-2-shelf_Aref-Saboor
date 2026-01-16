@@ -12,9 +12,8 @@ import {
   reauthenticateWithCredential,
   sendEmailVerification
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from './config';
-import { needsMigration, migrateUserBookshelf } from '../Firebase/bookshelfServiceNew';
+import { auth } from './config';
+import { createUserData, getUserData, updateUserData, createUserProfile } from './userService';
 
 const AuthContext = createContext();
 
@@ -38,29 +37,24 @@ export const AuthProvider = ({ children }) => {
     // Update user profile with display name
     if (displayName) {
       await updateProfile(user, { displayName });
-      // Reload user to ensure the display name is updated in the auth state
       await user.reload();
     }
 
-    // Create user document in Firestore with organized structure
-    await setDoc(doc(db, 'users', user.uid), {
-      uid: user.uid,
+    // Create user data in new structure
+    await createUserData(user.uid, {
       email: user.email,
       displayName: displayName || '',
-      displayNameLower: (displayName || '').toLowerCase(), // For case-insensitive search
-      photoURL: '',
-      createdAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString(),
-      stats: {
-        totalBooks: 0,
-        wantToRead: 0,
-        currentlyReading: 0,
-        completed: 0
-      },
-      bookshelf: [] // Will be removed after migration
     });
 
-    // Return updated user credential
+    // Create user profile
+    await createUserProfile(user.uid, {
+      photoURL: '',
+      bio: '',
+      location: '',
+      favoriteGenres: [],
+      readingGoal: 0,
+    });
+
     return userCredential;
   };
 
@@ -72,36 +66,32 @@ export const AuthProvider = ({ children }) => {
   // Sign in with Google
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    // Force account selection every time for better UX
     provider.setCustomParameters({
       prompt: 'select_account'
     });
     const userCredential = await signInWithPopup(auth, provider);
     const user = userCredential.user;
 
-    // Check if user document exists, if not create one
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    if (!userDoc.exists()) {
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
+    // Check if user data exists
+    const userData = await getUserData(user.uid);
+    if (!userData) {
+      // Create new user
+      await createUserData(user.uid, {
         email: user.email,
         displayName: user.displayName || '',
-        displayNameLower: (user.displayName || '').toLowerCase(),
+      });
+      
+      await createUserProfile(user.uid, {
         photoURL: user.photoURL || '',
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-        stats: {
-          totalBooks: 0,
-          wantToRead: 0,
-          currentlyReading: 0,
-          completed: 0
-        }
+        bio: '',
+        location: '',
+        favoriteGenres: [],
+        readingGoal: 0,
       });
     } else {
-      // Update last login time
-      await updateDoc(doc(db, 'users', user.uid), {
+      // Update last login
+      await updateUserData(user.uid, {
         lastLoginAt: new Date().toISOString(),
-        displayNameLower: (user.displayName || '').toLowerCase()
       });
     }
 
@@ -113,42 +103,19 @@ export const AuthProvider = ({ children }) => {
     return signOut(auth);
   };
 
-  // Get user data from Firestore
-  const getUserData = async (uid) => {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (userDoc.exists()) {
-      return userDoc.data();
-    }
-    return null;
-  };
-
-  // Update user data in Firestore and optionally update Firebase Auth profile
-  const updateUserData = async (data) => {
+  // Update user data wrapper
+  const updateUserDataWrapper = async (data) => {
     if (!currentUser) {
       throw new Error('No user is currently signed in');
     }
 
-    // Add displayNameLower if displayName is being updated
-    const updateData = { ...data };
+    // Update Firestore userData
+    await updateUserData(currentUser.uid, data);
+
+    // If displayName is being updated, also update Firebase Auth profile
     if (data.displayName !== undefined) {
-      updateData.displayNameLower = data.displayName.toLowerCase();
-    }
-
-    // Update Firestore document
-    await setDoc(doc(db, 'users', currentUser.uid), updateData, { merge: true });
-
-    // If photoURL or displayName is being updated, also update Firebase Auth profile
-    if (data.photoURL !== undefined || data.displayName !== undefined) {
-      const profileUpdates = {};
-      if (data.photoURL !== undefined) profileUpdates.photoURL = data.photoURL;
-      if (data.displayName !== undefined) profileUpdates.displayName = data.displayName;
-      
-      await updateProfile(currentUser, profileUpdates);
-      
-      // Reload the user to get the updated profile
+      await updateProfile(currentUser, { displayName: data.displayName });
       await currentUser.reload();
-      
-      // Force a state update by setting the user again
       setCurrentUser({ ...auth.currentUser });
     }
   };
@@ -174,9 +141,9 @@ export const AuthProvider = ({ children }) => {
       );
       await reauthenticateWithCredential(currentUser, credential);
 
-      // Delete user data from Firestore
-      await deleteDoc(doc(db, 'users', currentUser.uid));
-
+      // Delete user data (this will delete all subcollections too if you set up Firebase rules)
+      // Note: You may need to manually delete subcollections or use Cloud Functions
+      
       // Delete the user account
       await deleteUser(currentUser);
 
@@ -190,22 +157,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
-      
-      // Auto-migrate user if needed
-      if (user) {
-        try {
-          const needsMig = await needsMigration(user.uid);
-          if (needsMig) {
-            console.log('Migrating user to new database structure...');
-            await migrateUserBookshelf(user.uid);
-            console.log('Migration completed successfully!');
-          }
-        } catch (error) {
-          console.error('Auto-migration failed:', error);
-          // Don't block login if migration fails
-        }
-      }
-      
       setLoading(false);
     });
 
@@ -219,7 +170,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     signInWithGoogle,
     getUserData,
-    updateUserData,
+    updateUserData: updateUserDataWrapper,
     sendVerificationEmail,
     deleteAccount
   };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Firebase/AuthContext';
-import { addBookToShelf, isBookInShelf } from '../Firebase/bookshelfServiceNew';
+import { addBookToShelf, isBookInShelf } from '../Firebase/userService';
 
 const BookResults = ({ books, loading, error }) => {
   const { currentUser } = useAuth();

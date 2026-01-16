@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Firebase/AuthContext';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../Firebase/config';
 import { 
-  getUserBookshelf, 
-  updateBookStatus as updateBookStatusService,
+  getUserShelf, 
+  getShelfStats,
+  updateBookInShelf,
   removeBookFromShelf
-} from '../Firebase/bookshelfServiceNew';
+} from '../Firebase/userService';
 
 const Dashboard = ({ onBrowseBooks, onViewBookDetails }) => {
   const { currentUser } = useAuth();
@@ -32,40 +31,31 @@ const Dashboard = ({ onBrowseBooks, onViewBookDetails }) => {
 
   const checkUserShelf = async () => {
     try {
-      const userRef = doc(db, 'users', currentUser.uid);
-      const userDoc = await getDoc(userRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setHasShelf(userData.hasShelf || false);
-        
-        // Try to get books from new structure (subcollection)
-        const books = await getUserBookshelf(currentUser.uid);
-        
-        // Debug: Log books data
-        console.log('Dashboard received books:', books);
-        if (books.length > 0) {
-          console.log('First book data:', books[0]);
-          console.log('First book thumbnail:', books[0].thumbnail);
-          console.log('First book imageLinks:', books[0].imageLinks);
-        }
-        
-        // Books are already sorted by the service (newest first)
-        setBookshelf(books);
-        
-        // Get stats from user document (already calculated by the service)
-        if (userData.stats) {
-          setStats({
-            total: userData.stats.totalBooks || 0,
-            wantToRead: userData.stats.wantToRead || 0,
-            currentlyReading: userData.stats.currentlyReading || 0,
-            completed: userData.stats.completed || 0
-          });
-        } else {
-          // Fallback: calculate stats from books
-          calculateStats(books);
-        }
+      // Get books from new structure
+      const books = await getUserShelf(currentUser.uid);
+      
+      // Debug: Log books data
+      console.log('Dashboard received books:', books);
+      if (books.length > 0) {
+        console.log('First book data:', books[0]);
+        console.log('First book thumbnail:', books[0].thumbnail);
+        console.log('First book imageLinks:', books[0].imageLinks);
       }
+      
+      // Set hasShelf based on whether user has any books
+      setHasShelf(books.length > 0);
+      
+      // Books are already sorted by the service (newest first)
+      setBookshelf(books);
+      
+      // Get stats using the stats service
+      const shelfStats = await getShelfStats(currentUser.uid);
+      setStats({
+        total: shelfStats.total,
+        wantToRead: shelfStats.wantToRead,
+        currentlyReading: shelfStats.currentlyReading,
+        completed: shelfStats.completed
+      });
     } catch (error) {
       console.error('Error checking user shelf:', error);
     } finally {
@@ -73,33 +63,26 @@ const Dashboard = ({ onBrowseBooks, onViewBookDetails }) => {
     }
   };
 
-  const calculateStats = (books) => {
-    const total = books.length;
-    const wantToRead = books.filter(book => book.status === 'wantToRead').length;
-    const currentlyReading = books.filter(book => book.status === 'currentlyReading').length;
-    const completed = books.filter(book => book.status === 'completed').length;
-    
-    setStats({
-      total,
-      wantToRead,
-      currentlyReading,
-      completed
-    });
-  };
-
   const updateBookStatus = async (bookId, newStatus) => {
     try {
-      // Find the current book to get its old status
-      const currentBook = bookshelf.find(book => book.id === bookId);
-      const oldStatus = currentBook?.status || 'wantToRead';
-      
       // Use the new service to update book status
-      await updateBookStatusService(currentUser.uid, bookId, newStatus, oldStatus);
+      await updateBookInShelf(currentUser.uid, bookId, { 
+        status: newStatus,
+        lastUpdated: new Date().toISOString()
+      });
       
       // Refresh the bookshelf to show updated data
-      const updatedBooks = await getUserBookshelf(currentUser.uid);
+      const updatedBooks = await getUserShelf(currentUser.uid);
       setBookshelf(updatedBooks);
-      calculateStats(updatedBooks);
+      
+      // Update stats
+      const shelfStats = await getShelfStats(currentUser.uid);
+      setStats({
+        total: shelfStats.total,
+        wantToRead: shelfStats.wantToRead,
+        currentlyReading: shelfStats.currentlyReading,
+        completed: shelfStats.completed
+      });
     } catch (error) {
       console.error('Error updating book status:', error);
       alert('Failed to update book status. Please try again.');
@@ -112,9 +95,17 @@ const Dashboard = ({ onBrowseBooks, onViewBookDetails }) => {
       await removeBookFromShelf(currentUser.uid, bookId);
       
       // Refresh the bookshelf
-      const updatedBooks = await getUserBookshelf(currentUser.uid);
+      const updatedBooks = await getUserShelf(currentUser.uid);
       setBookshelf(updatedBooks);
-      calculateStats(updatedBooks);
+      
+      // Update stats
+      const shelfStats = await getShelfStats(currentUser.uid);
+      setStats({
+        total: shelfStats.total,
+        wantToRead: shelfStats.wantToRead,
+        currentlyReading: shelfStats.currentlyReading,
+        completed: shelfStats.completed
+      });
     } catch (error) {
       console.error('Error removing book:', error);
       alert('Failed to remove book. Please try again.');
@@ -303,8 +294,8 @@ const Dashboard = ({ onBrowseBooks, onViewBookDetails }) => {
 
   const createShelf = async () => {
     try {
-      const userRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userRef, { hasShelf: true, bookshelf: [] }, { merge: true });
+      // With the new structure, the shelf is created automatically 
+      // when the first book is added, so we just need to update the state
       setHasShelf(true);
       setBookshelf([]);
     } catch (error) {
