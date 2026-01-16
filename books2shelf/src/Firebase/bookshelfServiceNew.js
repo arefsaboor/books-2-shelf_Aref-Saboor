@@ -46,10 +46,17 @@ export const addBookToShelf = async (userId, bookData) => {
     // Update user stats
     await updateUserStats(userId, bookData.status || "wantToRead", "increment");
 
-    return { success: true, book: newBook };
+    return { 
+      success: true, 
+      book: newBook,
+      message: "Book added to your shelf successfully!" 
+    };
   } catch (error) {
     console.error("Error adding book:", error);
-    throw error;
+    return { 
+      success: false, 
+      message: "Failed to add book. Please try again." 
+    };
   }
 };
 
@@ -74,10 +81,16 @@ export const removeBookFromShelf = async (userId, bookId) => {
     // Update user stats
     await updateUserStats(userId, bookStatus, "decrement");
 
-    return { success: true };
+    return { 
+      success: true,
+      message: "Book removed from your shelf" 
+    };
   } catch (error) {
     console.error("Error removing book:", error);
-    throw error;
+    return { 
+      success: false, 
+      message: "Failed to remove book. Please try again." 
+    };
   }
 };
 

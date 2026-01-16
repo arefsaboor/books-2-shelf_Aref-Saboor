@@ -50,16 +50,16 @@ const BookResults = ({ books, loading, error }) => {
 
     try {
       const result = await addBookToShelf(currentUser.uid, book);
-      if (result.success) {
-        alert(result.message);
+      if (result && result.success) {
+        alert(result.message || 'Book added to your shelf successfully!');
         // Update the shelf status
         setBooksInShelf(prev => ({ ...prev, [book.id]: true }));
       } else {
-        alert(result.message);
+        alert(result?.message || 'Failed to add book. Please try again.');
       }
     } catch (err) {
       console.error('Error adding book:', err);
-      alert('Failed to add book to shelf');
+      alert('Failed to add book to shelf. Please check your connection.');
     } finally {
       setAddingBooks(prev => ({ ...prev, [book.id]: false }));
     }
