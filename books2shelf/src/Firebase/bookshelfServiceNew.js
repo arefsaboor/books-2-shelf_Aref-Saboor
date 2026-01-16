@@ -45,6 +45,11 @@ export const addBookToShelf = async (userId, bookData) => {
     
     const bookRef = doc(db, "bookshelves", userId, "books", bookId);
     
+    // Extract thumbnail URL and convert to HTTPS
+    const imageLinks = volumeInfo.imageLinks || bookData.imageLinks || {};
+    const thumbnailUrl = imageLinks.thumbnail || imageLinks.smallThumbnail || "";
+    const httpsThumbail = thumbnailUrl ? thumbnailUrl.replace('http://', 'https://') : "";
+    
     const newBook = {
       id: bookId,
       title: volumeInfo.title || bookData.title || "Unknown Title",
@@ -54,7 +59,8 @@ export const addBookToShelf = async (userId, bookData) => {
       description: volumeInfo.description || bookData.description || "",
       pageCount: volumeInfo.pageCount || bookData.pageCount || 0,
       categories: volumeInfo.categories || bookData.categories || [],
-      imageLinks: volumeInfo.imageLinks || bookData.imageLinks || {},
+      imageLinks: imageLinks,
+      thumbnail: httpsThumbail, // Direct thumbnail URL for easy access
       language: volumeInfo.language || bookData.language || "en",
       previewLink: volumeInfo.previewLink || bookData.previewLink || "",
       infoLink: volumeInfo.infoLink || bookData.infoLink || "",
