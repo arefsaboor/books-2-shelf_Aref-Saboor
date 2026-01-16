@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../firebase/AuthContext';
+import { useAuth } from '../Firebase/AuthContext';
 import AuthModal from './AuthModal';
 import ProfileDropdown from './ProfileDropdown';
 

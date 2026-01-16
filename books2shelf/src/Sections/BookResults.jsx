@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../firebase/AuthContext';
+import { useAuth } from '../Firebase/AuthContext';
 import { addBookToShelf, isBookInShelf } from '../Firebase/bookshelfServiceNew';
 
 const BookResults = ({ books, loading, error }) => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '../firebase/AuthContext';
+import { useAuth } from '../Firebase/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db } from '../Firebase/config';
 import BookResults from './BookResults';
 
 const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {

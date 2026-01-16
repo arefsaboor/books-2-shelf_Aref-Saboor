@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { migrateUserBookshelf, needsMigration } from '../Firebase/bookshelfServiceNew';
-import { useAuth } from '../firebase/AuthContext';
+import { useAuth } from '../Firebase/AuthContext';
 
 export default function MigrationUtility() {
   const { currentUser } = useAuth();

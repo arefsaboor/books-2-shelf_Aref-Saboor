@@ -1,6 +1,6 @@
 import React, { useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom'
-import { AuthProvider } from './firebase/AuthContext'
+import { AuthProvider } from './Firebase/AuthContext'
 import Navbar from './components/Navbar'
 import Hero from './Sections/Hero'
 import Dashboard from './Pages/Dashboard'

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from '../firebase/AuthContext';
+import { useAuth } from '../Firebase/AuthContext';
 
 const Footer = ({ onNavigateHome, onNavigateDashboard, onNavigateToPrivacy, onNavigateToImpressum, onNavigateAbout, onNavigateContact }) => {
   const currentYear = new Date().getFullYear();

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../firebase/AuthContext';
+import { useAuth } from '../Firebase/AuthContext';
 
 const AuthModal = ({ isOpen, onClose, mode }) => {
   const [email, setEmail] = useState('');

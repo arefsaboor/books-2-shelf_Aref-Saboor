@@ -1,0 +1,51 @@
+COPY THESE 6 VARIABLES TO VERCEL
+=====================================
+
+Variable 1:
+-----------
+Name:  VITE_FIREBASE_API_KEY
+Value: AIzaSyCu7ybGax9QvbHENewEw54aanKDijD5zYo
+Environments: ☑ Production  ☑ Preview  ☑ Development
+
+Variable 2:
+-----------
+Name:  VITE_FIREBASE_AUTH_DOMAIN
+Value: books2shelf.firebaseapp.com
+Environments: ☑ Production  ☑ Preview  ☑ Development
+
+Variable 3:
+-----------
+Name:  VITE_FIREBASE_PROJECT_ID
+Value: books2shelf
+Environments: ☑ Production  ☑ Preview  ☑ Development
+
+Variable 4:
+-----------
+Name:  VITE_FIREBASE_STORAGE_BUCKET
+Value: books2shelf.firebasestorage.app
+Environments: ☑ Production  ☑ Preview  ☑ Development
+
+Variable 5:
+-----------
+Name:  VITE_FIREBASE_MESSAGING_SENDER_ID
+Value: 550048212654
+Environments: ☑ Production  ☑ Preview  ☑ Development
+
+Variable 6:
+-----------
+Name:  VITE_FIREBASE_APP_ID
+Value: 1:550048212654:web:21e0d1f7f90dbf85776f3f
+Environments: ☑ Production  ☑ Preview  ☑ Development
+
+=====================================
+
+HOW TO ADD IN VERCEL:
+1. Go to Vercel Dashboard
+2. Select your project
+3. Go to Settings → Environment Variables
+4. Click "Add New"
+5. Copy Name from above, paste in "Name" field
+6. Copy Value from above, paste in "Value" field
+7. Select ALL 3 checkboxes (Production, Preview, Development)
+8. Click "Save"
+9. Repeat for all 6 variables

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../firebase/AuthContext';
+import { useAuth } from '../Firebase/AuthContext';
 
 const ProfileDropdown = ({ onNavigateProfile, onNavigateShelf, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
