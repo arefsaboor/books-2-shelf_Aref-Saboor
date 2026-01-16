@@ -183,11 +183,22 @@ export const getUserBookshelf = async (userId) => {
     const q = query(booksRef, orderBy("addedAt", "desc"));
     const snapshot = await getDocs(q);
 
-    const books = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const books = snapshot.docs.map((doc) => {
+      const bookData = {
+        id: doc.id,
+        ...doc.data(),
+      };
+      
+      // Debug: Log first book
+      if (snapshot.docs.indexOf(doc) === 0) {
+        console.log('getUserBookshelf - First book from Firebase:', bookData);
+        console.log('getUserBookshelf - Thumbnail:', bookData.thumbnail);
+      }
+      
+      return bookData;
+    });
 
+    console.log(`getUserBookshelf - Retrieved ${books.length} books`);
     return books;
   } catch (error) {
     console.error("Error getting bookshelf:", error);

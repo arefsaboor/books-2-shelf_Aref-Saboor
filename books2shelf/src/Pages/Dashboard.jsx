@@ -42,6 +42,14 @@ const Dashboard = ({ onBrowseBooks, onViewBookDetails }) => {
         // Try to get books from new structure (subcollection)
         const books = await getUserBookshelf(currentUser.uid);
         
+        // Debug: Log books data
+        console.log('Dashboard received books:', books);
+        if (books.length > 0) {
+          console.log('First book data:', books[0]);
+          console.log('First book thumbnail:', books[0].thumbnail);
+          console.log('First book imageLinks:', books[0].imageLinks);
+        }
+        
         // Books are already sorted by the service (newest first)
         setBookshelf(books);
         
