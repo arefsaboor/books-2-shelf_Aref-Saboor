@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../Firebase/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../Firebase/config';
 import BookResults from './BookResults';
 
-const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {
+const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout, onOpenSignup }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Top Rated');
   const [books, setBooks] = useState([]);
@@ -21,7 +20,6 @@ const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const suggestionsRef = useRef(null);
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
 
   const categories = [
     { name: 'Top Rated', query: 'toprated' },
@@ -65,8 +63,21 @@ const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout }) => {
   };
 
   const handleSignupRedirect = () => {
+    console.log('Sign Up Now clicked!');
+    console.log('onOpenSignup available?', typeof onOpenSignup);
+    
     setShowSignupModal(false);
-    navigate('/signup');
+    
+    // Small delay to ensure modal closes before opening new one
+    setTimeout(() => {
+      if (onOpenSignup) {
+        console.log('Calling onOpenSignup...');
+        onOpenSignup();
+      } else {
+        console.error('onOpenSignup function not available!');
+        alert('Please use the "Sign Up" button in the top navigation bar to create an account.');
+      }
+    }, 300);
   };
 
   const loadTopRated = useCallback(async (page = 1) => {

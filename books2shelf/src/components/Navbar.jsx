@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useAuth } from '../Firebase/AuthContext';
 import AuthModal from './AuthModal';
 import ProfileDropdown from './ProfileDropdown';
 
-const Navbar = ({ onNavigateHome, onNavigateDashboard, onNavigateProfile, onNavigateAbout, onNavigateContact }) => {
+const Navbar = ({ onNavigateHome, onNavigateDashboard, onNavigateProfile, onNavigateAbout, onNavigateContact, exposeSignupHandler }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('signin');
@@ -19,10 +19,23 @@ const Navbar = ({ onNavigateHome, onNavigateDashboard, onNavigateProfile, onNavi
     setAuthModalOpen(true);
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = useCallback(() => {
     setAuthMode('signup');
     setAuthModalOpen(true);
-  };
+  }, []);
+
+  // Expose handleSignUp to parent component
+  React.useEffect(() => {
+    console.log('Navbar: Exposing signup handler', {
+      exposeSignupHandler: typeof exposeSignupHandler,
+      handleSignUp: typeof handleSignUp
+    });
+    
+    if (exposeSignupHandler) {
+      exposeSignupHandler(handleSignUp);
+      console.log('Navbar: Signup handler exposed successfully!');
+    }
+  }, [exposeSignupHandler, handleSignUp]);
 
   const handleLogout = async () => {
     setLoggingOut(true);

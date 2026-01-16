@@ -31,71 +31,149 @@ export const AuthProvider = ({ children }) => {
 
   // Sign up with email and password
   const signup = async (email, password, displayName) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-    // Update user profile with display name
-    if (displayName) {
-      await updateProfile(user, { displayName });
-      await user.reload();
-    }
+      // Update user profile with display name
+      if (displayName) {
+        await updateProfile(user, { displayName });
+        await user.reload();
+      }
 
-    // Create user data in new structure
-    await createUserData(user.uid, {
-      email: user.email,
-      displayName: displayName || '',
-    });
-
-    // Create user profile
-    await createUserProfile(user.uid, {
-      photoURL: '',
-      bio: '',
-      location: '',
-      favoriteGenres: [],
-      readingGoal: 0,
-    });
-
-    return userCredential;
-  };
-
-  // Sign in with email and password
-  const login = (email, password) => {
-    return signInWithEmailAndPassword(auth, email, password);
-  };
-
-  // Sign in with Google
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({
-      prompt: 'select_account'
-    });
-    const userCredential = await signInWithPopup(auth, provider);
-    const user = userCredential.user;
-
-    // Check if user data exists
-    const userData = await getUserData(user.uid);
-    if (!userData) {
-      // Create new user
+      // Create user data in new structure
       await createUserData(user.uid, {
         email: user.email,
-        displayName: user.displayName || '',
+        displayName: displayName || '',
       });
-      
+
+      // Create user profile
       await createUserProfile(user.uid, {
-        photoURL: user.photoURL || '',
+        photoURL: '',
         bio: '',
         location: '',
         favoriteGenres: [],
         readingGoal: 0,
       });
-    } else {
-      // Update last login
-      await updateUserData(user.uid, {
-        lastLoginAt: new Date().toISOString(),
-      });
-    }
 
-    return userCredential;
+      return userCredential;
+    } catch (error) {
+      // Handle specific Firebase errors with user-friendly messages
+      let errorMessage = 'An error occurred during signup. Please try again.';
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'This email is already registered. Please sign in instead or use a different email.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Please enter a valid email address.';
+          break;
+        case 'auth/weak-password':
+          errorMessage = 'Password should be at least 6 characters long.';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = 'Email/password accounts are not enabled. Please contact support.';
+          break;
+        default:
+          errorMessage = error.message || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Sign in with email and password
+  const login = async (email, password) => {
+    try {
+      return await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      // Handle specific Firebase errors with user-friendly messages
+      let errorMessage = 'An error occurred during sign in. Please try again.';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = 'No account found with this email. Please sign up first.';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'Incorrect password. Please try again.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Please enter a valid email address.';
+          break;
+        case 'auth/user-disabled':
+          errorMessage = 'This account has been disabled. Please contact support.';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'Too many failed login attempts. Please try again later.';
+          break;
+        case 'auth/invalid-credential':
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+          break;
+        default:
+          errorMessage = error.message || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
+
+      // Check if user data exists
+      const userData = await getUserData(user.uid);
+      if (!userData) {
+        // Create new user
+        await createUserData(user.uid, {
+          email: user.email,
+          displayName: user.displayName || '',
+        });
+        
+        await createUserProfile(user.uid, {
+          photoURL: user.photoURL || '',
+          bio: '',
+          location: '',
+          favoriteGenres: [],
+          readingGoal: 0,
+        });
+      } else {
+        // Update last login
+        await updateUserData(user.uid, {
+          lastLoginAt: new Date().toISOString(),
+        });
+      }
+
+      return userCredential;
+    } catch (error) {
+      // Handle specific Firebase errors with user-friendly messages
+      let errorMessage = 'An error occurred during Google sign in. Please try again.';
+      
+      switch (error.code) {
+        case 'auth/popup-closed-by-user':
+          errorMessage = 'Sign in was cancelled. Please try again.';
+          break;
+        case 'auth/popup-blocked':
+          errorMessage = 'Popup was blocked by your browser. Please allow popups and try again.';
+          break;
+        case 'auth/cancelled-popup-request':
+          errorMessage = 'Sign in was cancelled. Please try again.';
+          break;
+        case 'auth/account-exists-with-different-credential':
+          errorMessage = 'An account already exists with this email but different sign-in method.';
+          break;
+        default:
+          errorMessage = error.message || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
+    }
   };
 
   // Sign out
