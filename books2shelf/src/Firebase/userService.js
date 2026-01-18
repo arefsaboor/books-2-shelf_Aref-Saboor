@@ -385,3 +385,53 @@ export const getShelfStats = async (userId) => {
     };
   }
 };
+
+// ==================== USER DELETION ====================
+
+/**
+ * Delete all user data from Firestore
+ * This must be called BEFORE deleting the user from Firebase Auth
+ */
+export const deleteAllUserData = async (userId) => {
+  try {
+    console.log('Starting deletion of all user data for:', userId);
+    
+    // 1. Delete all books from userShelf subcollection
+    const shelfRef = collection(db, "Users", userId, "userShelf");
+    const booksSnapshot = await getDocs(shelfRef);
+    console.log(`Deleting ${booksSnapshot.docs.length} books from shelf...`);
+    
+    const bookDeletePromises = booksSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(bookDeletePromises);
+    
+    // 2. Delete userProfile
+    const profileRef = doc(db, "Users", userId, "userProfile", "info");
+    const profileDoc = await getDoc(profileRef);
+    if (profileDoc.exists()) {
+      console.log('Deleting user profile...');
+      await deleteDoc(profileRef);
+    }
+    
+    // 3. Delete userData
+    const userDataRef = doc(db, "Users", userId, "userData", "info");
+    const userDataDoc = await getDoc(userDataRef);
+    if (userDataDoc.exists()) {
+      console.log('Deleting user data...');
+      await deleteDoc(userDataRef);
+    }
+    
+    // 4. Delete the parent Users document (if it exists as a document)
+    const userDocRef = doc(db, "Users", userId);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+      console.log('Deleting user document...');
+      await deleteDoc(userDocRef);
+    }
+    
+    console.log('All user data deleted successfully from Firestore');
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting user data:", error);
+    throw error;
+  }
+};

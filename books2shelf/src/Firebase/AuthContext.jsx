@@ -13,7 +13,7 @@ import {
   sendEmailVerification
 } from 'firebase/auth';
 import { auth } from './config';
-import { createUserData, getUserData, updateUserData, createUserProfile } from './userService';
+import { createUserData, getUserData, updateUserData, createUserProfile, deleteAllUserData, getUserProfile, updateUserProfile } from './userService';
 
 const AuthContext = createContext();
 
@@ -130,7 +130,12 @@ export const AuthProvider = ({ children }) => {
       // Check if user data exists
       const userData = await getUserData(user.uid);
       if (!userData) {
-        // Create new user
+        // Create new user - store Google display name and photo
+        console.log('Creating new user from Google Sign-in:', {
+          displayName: user.displayName,
+          photoURL: user.photoURL
+        });
+        
         await createUserData(user.uid, {
           email: user.email,
           displayName: user.displayName || '',
@@ -143,11 +148,45 @@ export const AuthProvider = ({ children }) => {
           favoriteGenres: [],
           readingGoal: 0,
         });
+
+        // Also update Firebase Auth profile to ensure consistency
+        if (user.displayName || user.photoURL) {
+          await updateProfile(user, {
+            displayName: user.displayName || user.displayName,
+            photoURL: user.photoURL || user.photoURL
+          });
+        }
       } else {
-        // Update last login
-        await updateUserData(user.uid, {
+        // Update last login and sync Google profile data if changed
+        const updates = {
           lastLoginAt: new Date().toISOString(),
-        });
+        };
+
+        // If Google has a display name and it's different, update it
+        if (user.displayName && user.displayName !== userData.displayName) {
+          updates.displayName = user.displayName;
+          console.log('Updating display name from Google:', user.displayName);
+        }
+
+        await updateUserData(user.uid, updates);
+
+        // Also sync photoURL to Firestore if it exists from Google
+        const userProfile = await getUserProfile(user.uid);
+        if (user.photoURL && (!userProfile || userProfile.photoURL !== user.photoURL)) {
+          console.log('Syncing Google photo to Firestore:', user.photoURL);
+          await updateUserProfile(user.uid, {
+            photoURL: user.photoURL
+          });
+        }
+
+        // Ensure Firebase Auth profile is synced
+        if (user.displayName || user.photoURL) {
+          await updateProfile(user, {
+            displayName: user.displayName || userData.displayName,
+            photoURL: user.photoURL || user.photoURL
+          });
+          await user.reload();
+        }
       }
 
       return userCredential;
@@ -187,12 +226,41 @@ export const AuthProvider = ({ children }) => {
       throw new Error('No user is currently signed in');
     }
 
-    // Update Firestore userData
-    await updateUserData(currentUser.uid, data);
+    // Separate userData fields from userProfile fields
+    const userDataFields = {};
+    const userProfileFields = {};
 
-    // If displayName is being updated, also update Firebase Auth profile
+    // displayName goes to userData
     if (data.displayName !== undefined) {
-      await updateProfile(currentUser, { displayName: data.displayName });
+      userDataFields.displayName = data.displayName;
+    }
+
+    // photoURL goes to userProfile
+    if (data.photoURL !== undefined) {
+      userProfileFields.photoURL = data.photoURL;
+    }
+
+    // Update Firestore userData if there are fields
+    if (Object.keys(userDataFields).length > 0) {
+      await updateUserData(currentUser.uid, userDataFields);
+    }
+
+    // Update Firestore userProfile if there are fields
+    if (Object.keys(userProfileFields).length > 0) {
+      await updateUserProfile(currentUser.uid, userProfileFields);
+    }
+
+    // Update Firebase Auth profile to keep it in sync
+    const authUpdates = {};
+    if (data.displayName !== undefined) {
+      authUpdates.displayName = data.displayName;
+    }
+    if (data.photoURL !== undefined) {
+      authUpdates.photoURL = data.photoURL;
+    }
+
+    if (Object.keys(authUpdates).length > 0) {
+      await updateProfile(currentUser, authUpdates);
       await currentUser.reload();
       setCurrentUser({ ...auth.currentUser });
     }
@@ -219,12 +287,15 @@ export const AuthProvider = ({ children }) => {
       );
       await reauthenticateWithCredential(currentUser, credential);
 
-      // Delete user data (this will delete all subcollections too if you set up Firebase rules)
-      // Note: You may need to manually delete subcollections or use Cloud Functions
+      // IMPORTANT: Delete all Firestore data BEFORE deleting the Auth account
+      console.log('Deleting all user data from Firestore...');
+      await deleteAllUserData(currentUser.uid);
       
-      // Delete the user account
+      // Delete the user account from Firebase Authentication
+      console.log('Deleting user from Firebase Authentication...');
       await deleteUser(currentUser);
 
+      console.log('Account deletion completed successfully');
       return { success: true };
     } catch (error) {
       console.error('Error deleting account:', error);

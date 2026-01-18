@@ -3,6 +3,7 @@ import { useAuth } from '../Firebase/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../Firebase/config';
+import { getUserProfile } from '../Firebase/userService';
 
 const Profile = ({ onNavigateShelf }) => {
   const { currentUser, updateUserData, deleteAccount, sendVerificationEmail } = useAuth();
@@ -15,6 +16,8 @@ const Profile = ({ onNavigateShelf }) => {
   const [deleteStep, setDeleteStep] = useState(1); // 1: confirm, 2: verify email, 3: enter password
   const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
   const fileInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
@@ -27,6 +30,7 @@ const Profile = ({ onNavigateShelf }) => {
 
   useEffect(() => {
     if (currentUser) {
+      loadUserProfile();
       setFormData({
         displayName: currentUser.displayName || '',
         email: currentUser.email || '',
@@ -40,6 +44,21 @@ const Profile = ({ onNavigateShelf }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
+
+  const loadUserProfile = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setLoading(true);
+      const profile = await getUserProfile(currentUser.uid);
+      setUserProfile(profile);
+      console.log('Loaded user profile from Firestore:', profile);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchBookCount = async () => {
     if (!currentUser) return;
@@ -90,8 +109,13 @@ const Profile = ({ onNavigateShelf }) => {
       // Get the download URL
       const downloadURL = await getDownloadURL(storageRef);
       
-      // Update user data (this will update both Firestore and Firebase Auth)
+      console.log('Uploaded photo URL:', downloadURL);
+      
+      // Update user profile with new photo URL (this will update both Firestore and Firebase Auth)
       await updateUserData({ photoURL: downloadURL });
+      
+      // Reload the profile to show the new photo
+      await loadUserProfile();
       
       setMessage({ text: 'Profile picture updated successfully!', type: 'success' });
     } catch (error) {
@@ -252,12 +276,14 @@ const Profile = ({ onNavigateShelf }) => {
           <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
             {/* Profile Picture */}
             <div className="relative group">
-              {currentUser.photoURL ? (
+              {loading ? (
+                <div className="w-40 h-40 rounded-full bg-gray-200 animate-pulse border border-orange-700 shadow-xl"></div>
+              ) : (userProfile?.photoURL || currentUser.photoURL) ? (
                 <img
-                  src={currentUser.photoURL}
+                  src={userProfile?.photoURL || currentUser.photoURL}
                   alt="Profile"
                   className="w-40 h-40 rounded-full object-cover border border-orange-700 shadow-xl"
-                  key={currentUser.photoURL}
+                  key={userProfile?.photoURL || currentUser.photoURL}
                 />
               ) : (
                 <div className="w-40 h-40 rounded-full bg-linear-to-br from-amber-400 via-orange-400 to-orange-500 text-white flex items-center justify-center font-bold text-5xl shadow-xl border border-orange-700">
