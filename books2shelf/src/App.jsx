@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom'
 import { AuthProvider } from './Firebase/AuthContext'
 import Navbar from './components/Navbar'
@@ -23,13 +23,8 @@ function BookDetailsWrapper() {
 // Main App Content component
 function AppContent() {
   const searchBarRef = useRef(null);
-  const [openSignupModal, setOpenSignupModal] = useState(null);
+  const navbarRef = useRef(null);
   const navigate = useNavigate();
-
-  // Debug: Log when openSignupModal changes
-  React.useEffect(() => {
-    console.log('App: openSignupModal updated', typeof openSignupModal);
-  }, [openSignupModal]);
 
   const navigateToHome = () => {
     navigate('/');
@@ -90,12 +85,12 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Navbar 
+        ref={navbarRef}
         onNavigateHome={navigateToHome}
         onNavigateDashboard={navigateToDashboard}
         onNavigateProfile={navigateToProfile}
         onNavigateAbout={navigateToAbout}
         onNavigateContact={navigateToContact}
-        exposeSignupHandler={setOpenSignupModal}
       />
       <main className="grow">
         <Routes>
@@ -106,7 +101,7 @@ function AppContent() {
                 searchBarRef={searchBarRef} 
                 onNavigateToDashboard={navigateToDashboard}
                 onNavigateToAbout={navigateToAbout}
-                onOpenSignup={openSignupModal}
+                onOpenSignup={() => navbarRef.current?.openSignup()}
               />
             } 
           />

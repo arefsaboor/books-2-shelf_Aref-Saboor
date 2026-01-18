@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useImperativeHandle, forwardRef } from 'react';
 import { useAuth } from '../Firebase/AuthContext';
 import AuthModal from './AuthModal';
 import ProfileDropdown from './ProfileDropdown';
 
-const Navbar = ({ onNavigateHome, onNavigateDashboard, onNavigateProfile, onNavigateAbout, onNavigateContact, exposeSignupHandler }) => {
+const Navbar = forwardRef(({ onNavigateHome, onNavigateDashboard, onNavigateProfile, onNavigateAbout, onNavigateContact }, ref) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('signin');
@@ -19,23 +19,16 @@ const Navbar = ({ onNavigateHome, onNavigateDashboard, onNavigateProfile, onNavi
     setAuthModalOpen(true);
   };
 
-  const handleSignUp = useCallback(() => {
+  const handleSignUp = () => {
     setAuthMode('signup');
     setAuthModalOpen(true);
-  }, []);
+  };
 
-  // Expose handleSignUp to parent component
-  React.useEffect(() => {
-    console.log('Navbar: Exposing signup handler', {
-      exposeSignupHandler: typeof exposeSignupHandler,
-      handleSignUp: typeof handleSignUp
-    });
-    
-    if (exposeSignupHandler) {
-      exposeSignupHandler(handleSignUp);
-      console.log('Navbar: Signup handler exposed successfully!');
-    }
-  }, [exposeSignupHandler, handleSignUp]);
+  // Expose handleSignUp via ref (no useEffect, no state updates!)
+  useImperativeHandle(ref, () => ({
+    openSignup: handleSignUp,
+    openSignin: handleSignIn
+  }));
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -264,6 +257,8 @@ const Navbar = ({ onNavigateHome, onNavigateDashboard, onNavigateProfile, onNavi
     )}
     </>
   );
-};
+});
+
+Navbar.displayName = 'Navbar';
 
 export default Navbar;

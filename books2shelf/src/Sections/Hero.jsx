@@ -63,21 +63,15 @@ const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout, onOpenSi
   };
 
   const handleSignupRedirect = () => {
-    console.log('Sign Up Now clicked!');
-    console.log('onOpenSignup available?', typeof onOpenSignup);
-    
+    // Close the Hero's info modal
     setShowSignupModal(false);
     
-    // Small delay to ensure modal closes before opening new one
+    // Small delay to ensure modal closes smoothly before opening auth modal
     setTimeout(() => {
       if (onOpenSignup) {
-        console.log('Calling onOpenSignup...');
-        onOpenSignup();
-      } else {
-        console.error('onOpenSignup function not available!');
-        alert('Please use the "Sign Up" button in the top navigation bar to create an account.');
+        onOpenSignup(); // This calls navbarRef.current.openSignup()
       }
-    }, 300);
+    }, 200);
   };
 
   const loadTopRated = useCallback(async (page = 1) => {
@@ -551,9 +545,9 @@ const Hero = ({ searchBarRef, onNavigateToDashboard, onNavigateToAbout, onOpenSi
       </div>
 
       {/* Background Decorative Circles */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-      <div className="absolute top-40 right-10 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-      <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+      <div className="absolute top-20 left-10 w-72 h-72 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob pointer-events-none"></div>
+      <div className="absolute top-40 right-10 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000 pointer-events-none"></div>
+      <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000 pointer-events-none"></div>
 
       {/* Sign Up Modal */}
       {showSignupModal && (
